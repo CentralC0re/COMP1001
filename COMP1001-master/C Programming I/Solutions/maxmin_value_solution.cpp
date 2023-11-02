@@ -10,13 +10,15 @@
 #include <stdlib.h> //this library is needed for rand() function
 #include <windows.h> //this library is needed for pause() function
 
+#define N 10	// The provided solution
 
 void initialize();  //in C, functions must be declared before main()
 void print();	//in C, functions must be declared
 int find_max();	//in C, functions must be declared
 int find_min();	//in C, functions must be declared
 
-int A[10]; 
+int A[N]; 
+// #define A {3, 5, 10, 7, 0, 7, 2, 8, 11, -1}; Originally tried to do this, a lack of build / debug prevents me from checking.
 
 int main( ) {
 
@@ -40,7 +42,7 @@ void initialize(){
 
 int i;
 
-for (i=0;i<10;i++)
+for (i=0;i<N;i++)
  A[i]=rand()%20; //rand() is a function that generates random numbers. The array's values range within 0-19. Why?
 
 }
@@ -52,7 +54,7 @@ int i, max;
 
 max=A[0];//initialize the max with the value of the first element
 
-for (i=1;i<10;i++){ 
+for (i=1;i<N;i++){ 
  if (A[i]>max)  //compare max to all the elements with max starting from the 1st. 
    max=A[i];
 }
@@ -67,7 +69,7 @@ int i, min;
 
 min=A[0];//initialize the min with the value of the first element
 
-for (i=1;i<10;i++){ 
+for (i=1;i<N;i++){ 
  if (A[i]<min)  //compare max to all the elements with max starting from the 1st. 
    min=A[i];
 }

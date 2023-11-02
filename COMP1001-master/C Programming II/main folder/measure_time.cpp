@@ -17,8 +17,8 @@ int find_max();	//in C, functions must be declared
 int find_min();	//in C, functions must be declared
 
 #define N 10000000
-#define TIMES_TO_RUN 200 //how many times the function will run
-
+#define TIMES_TO_RUN 500 //how many times the function will run, determines execution time
+						// With debugger off, the program completes approximately 0.5s faster.
 int A[N];
 
 int main() {
