@@ -16,7 +16,7 @@ int main() {
 	unsigned short int output;
 	int t;
 	//the following command pins the current process to the 1st core
-	//otherwise, the OS tongles this process between different cores
+	//otherwise, the OS tongles this process between different cores	-	"tongles"? It distributes it (I think)
 	BOOL success = SetProcessAffinityMask(GetCurrentProcess(), 1);
 	if (success == 0) {
 		//cout << "SetProcessAffinityMask failed" << endl;
@@ -40,9 +40,9 @@ int main() {
 	//---Appropriately MODIFY the 'TIMES_TO_RUN' and the input size (defined in the appropriate header file)---
 	for (t = 0; t < TIMES_TO_RUN; t++) {
 
-		//output = ConstAdd_default();
-		output = ConstAdd_SSE();
-		//output = ConstAdd_AVX();
+		//output = ConstAdd_default();// Default takes 10-14 ms
+		//output = ConstAdd_SSE();	// SSE takes 8-10 ms
+		output = ConstAdd_AVX();	// AVX takes 6-7 ms
 
 
 	}

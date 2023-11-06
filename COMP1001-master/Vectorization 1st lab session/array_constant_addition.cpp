@@ -39,6 +39,8 @@ unsigned short int ConstAdd_SSE() {
 		_mm_storeu_ps(&V1[i], num3); //store num3 to Y[i]. num3 has 4 FP values which they are stored into Y[i], Y[i+1], Y[i+2], Y[i+3], respectively
 	}
 
+	// The addition of a calculator for remainder of M div 4 would allow for the calculator to always work, but would take longer.
+
 
 	return 2;
 }
@@ -81,7 +83,7 @@ unsigned short int Compare_ConstAdd() {
 unsigned short int equal(float a, float b) {
 	float temp = a - b;
 	//printf("\n %f  %f", a, b);
-	if ( (fabs(temp)/fabs(b)) < EPSILON)
+	if ( (fabs(temp)/fabs(b)) < EPSILON)	// Hey, it's the FP checker algorithm again!
 		return 0; //success
 	else
 		return 1; //wrong result

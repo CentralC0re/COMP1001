@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "C Prog Ptr1d", "C Prog Ptr1
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "C Prog Struct", "C Prog Struct\C Prog Struct.vcxproj", "{8BCA9447-9A32-40F2-8096-EF7E696B8BCD}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Vectorisation 1 Array Addition", "Vectorisation 1 Array Addition\Vectorisation 1 Array Addition.vcxproj", "{9FDA681C-95AB-4544-ADE5-A1C59ECA14A0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -61,6 +63,14 @@ Global
 		{8BCA9447-9A32-40F2-8096-EF7E696B8BCD}.Release|x64.Build.0 = Release|x64
 		{8BCA9447-9A32-40F2-8096-EF7E696B8BCD}.Release|x86.ActiveCfg = Release|Win32
 		{8BCA9447-9A32-40F2-8096-EF7E696B8BCD}.Release|x86.Build.0 = Release|Win32
+		{9FDA681C-95AB-4544-ADE5-A1C59ECA14A0}.Debug|x64.ActiveCfg = Debug|x64
+		{9FDA681C-95AB-4544-ADE5-A1C59ECA14A0}.Debug|x64.Build.0 = Debug|x64
+		{9FDA681C-95AB-4544-ADE5-A1C59ECA14A0}.Debug|x86.ActiveCfg = Debug|Win32
+		{9FDA681C-95AB-4544-ADE5-A1C59ECA14A0}.Debug|x86.Build.0 = Debug|Win32
+		{9FDA681C-95AB-4544-ADE5-A1C59ECA14A0}.Release|x64.ActiveCfg = Release|x64
+		{9FDA681C-95AB-4544-ADE5-A1C59ECA14A0}.Release|x64.Build.0 = Release|x64
+		{9FDA681C-95AB-4544-ADE5-A1C59ECA14A0}.Release|x86.ActiveCfg = Release|Win32
+		{9FDA681C-95AB-4544-ADE5-A1C59ECA14A0}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
