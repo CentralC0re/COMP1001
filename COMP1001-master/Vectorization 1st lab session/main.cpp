@@ -16,8 +16,8 @@ int main() {
 	unsigned short int output;
 	int t;
 	//the following command pins the current process to the 1st core
-	//otherwise, the OS tongles this process between different cores	-	"tongles"? It distributes it (I think)
-	BOOL success = SetProcessAffinityMask(GetCurrentProcess(), 1);
+	//otherwise, the OS tongles this process between different cores	-	This sections prevents task from being reallocated
+	BOOL success = SetProcessAffinityMask(GetCurrentProcess(), 1);			// To other cores
 	if (success == 0) {
 		//cout << "SetProcessAffinityMask failed" << endl;
 		printf("\nSetProcessAffinityMask failed\n");
