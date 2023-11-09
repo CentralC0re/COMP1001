@@ -9,8 +9,9 @@
 #include "array_addition.h"
 #include "array_constant_addition.h"
 
-#define TIMES_TO_RUN 1 //how many times the function will run
-
+#define TIMES_TO_RUN 1000 //how many times the function will run
+							// 4-6ms with Add_SSE
+							// 2-3ms with Add_AVX
 void print_message(char s[], unsigned short int outcome);
 
 //using namespace std; 
@@ -50,11 +51,11 @@ int main() {
 
 		//output = ConstAdd_default();
 		//output = ConstAdd_SSE();
-		output = ConstAdd_AVX();
+		//output = ConstAdd_AVX();
 
 		//output = Add_default();
 		//output = Add_SSE();
-		//output = Add_AVX();
+		output = Add_AVX();
 
 
 	}
