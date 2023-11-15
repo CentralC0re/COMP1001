@@ -15,7 +15,7 @@ void row_wise();
 void column_wise();
 
 #define N 4000
-#define TIMES_TO_RUN 1000 //how many times the function will run
+#define TIMES_TO_RUN 100 //how many times the function will run
 
 int A[N][N];
 
@@ -28,8 +28,8 @@ int main() {
 	start_1 = clock(); //start the timer (THIS IS NOT A VERY ACCURATE TIMER) - ignore this for now
 
 	for (int i = 0; i < TIMES_TO_RUN; i++)//this loop is needed to get an accurate ex.time value
-		column_wise();
-		//row_wise();
+		//column_wise();			// 11131ms	19ms release
+		row_wise();			// 1207ms	5826 release (slower with optimisations?)
 
 	end_1 = clock(); //end the timer - ignore this for now
 

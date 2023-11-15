@@ -67,12 +67,12 @@ void initialize() {
 
     unsigned int i, j;
 
-    //initialize routine2 arrays
+	    //initialize routine2 arrays
     for (i = 0; i < N; i++)
         for (j = 0; j < N; j++) {
-            A[i][j] = (i % 99) + (j % 14) + 0.013f;
+            A[i][j] = (i % 99) + (j % 14) + 0.013f;		// I was trying to vectorise this... whoops
         }
-
+	
     //initialize routine1 arrays
     for (i = 0; i < N; i++) {
         x[i] = (i % 19) - 0.01f;
@@ -94,11 +94,30 @@ void initialize() {
 void routine1(float alpha, float beta) {
 
     unsigned int i;
+	float aArray[8];
+	float bArray[8];
+	for (int i = 0; i < 8; i++) {	// Probably inefficient.
+		aArray[i] = alpha;
+		bArray[i] = beta;
+	}
 
+	__m256 aContain = _mm256_loadu_ps(aArray);
+	__m256 bContain = _mm256_loadu_ps(bArray);
+	// Attempted to manually destroy a and b arrays, but it's far too much effort for
+	// very little memory saving.
 
-    for (i = 0; i < M; i++)
-        y[i] = alpha * y[i] + beta * z[i];
-
+	for (i = 0; i < M; i += 8)
+	{	// Why were these curly brackets missing?
+		__m256 aResult, bResult, finalResult;		// Variables defined here so they go out of scope on loop end.
+		__m256 yContain = _mm256_loadu_ps(&y[i]);
+		__m256 zContain = _mm256_loadu_ps(&z[i]);
+		aResult = _mm256_mul_ps(aContain, yContain);
+		bResult = _mm256_mul_ps(bContain, zContain);
+		finalResult = _mm256_add_ps(aResult, bResult);
+		_mm256_storeu_ps(&y[i], finalResult);		// Given sets of 8 values are consistently updating, it seems to work
+													// That said, create some validation system as it rewards marks
+		//y[i] = alpha * y[i] + beta * z[i];
+	}
 }
 
 void routine2(float alpha, float beta) {
