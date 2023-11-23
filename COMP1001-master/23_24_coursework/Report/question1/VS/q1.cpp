@@ -103,7 +103,7 @@ int main() {
 
 	float r2VCheckValues[5] = { w[1], w[25], w[300], w[1024], w[1025] };
 
-	checkValues(r2CheckValues, r2VCheckValues);
+	checkValues(r2CheckValues, r2VCheckValues);		// r2Check and r2VCheck are independent.
 
     return 0;
 }
@@ -192,10 +192,10 @@ void routine2(float alpha, float beta) {
     unsigned int i, j;
 
     for (i = 0; i < N; i++)
-        for (j = 0; j < N; j++)
-            w[i] = w[i] - beta + alpha * A[i][j] * x[j];
-
-
+		for (j = 0; j < N; j++)
+		{
+			w[i] = w[i] - beta + alpha * A[i][j] * x[j];
+		}
 }
 
 void routine2_vec(float alpha, float beta) {
@@ -215,11 +215,12 @@ void routine2_vec(float alpha, float beta) {
 	{
 		unsigned int iArray[8] = { i };	// Despite both being initialised as int, i is apparently unsigned
 										// Set array to unsigned to remove conversion warning and allow greater upper value
-		__m256 wContain = _mm256_loadu_ps(&w[i]);
-		__m256 subResult = _mm256_sub_ps(wContain, betaContain);	// This does not need to be recalculated	- Correct result
+		
 		// alpha cannot be added before the loop because of the order of operations (alpha * A)
 		for (j = 0; j < N; j+=8)									// every j loop
 		{
+			__m256 wContain = _mm256_loadu_ps(&w[i]);
+			__m256 subResult = _mm256_sub_ps(wContain, betaContain);	// This DOES need to be recalculated.
 			__m256 arrAContain = _mm256_loadu_ps(&A[i][j]);
 			__m256 xContain = _mm256_loadu_ps(&x[j]);
 			
