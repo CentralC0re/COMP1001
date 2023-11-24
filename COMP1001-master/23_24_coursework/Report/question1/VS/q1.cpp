@@ -213,8 +213,8 @@ void routine2_vec(float alpha, float beta) {
 		bArray[i] = beta;
 	}
 
-	__m256 alphaContain = _mm256_loadu_ps(aArray);
-	__m256 betaContain = _mm256_loadu_ps(bArray);
+	__m256 alphaContain = _mm256_loadu_ps(aArray);	// Even using __m128 innaccuracy still in the thousands
+	__m256 betaContain = _mm256_loadu_ps(bArray);	// And with it performance takes a massive hit
 
 	for (i = 0; i < N; i+=8)
 	{
@@ -241,8 +241,8 @@ void checkValues(float* correct, float* checking) {	// This only takes 1 value, 
 	bool isCorrect = true;
 	for (int i = 0; i < 5; i++)	// Fixed i cap as the arrays are always length 5
 	{
-		if (abs((correct[i] - checking[i]) / checking[i]) >= 0.0001)	// FP calculation to determine if two values are equal enough, 100% higher tolerance than default
-		{																// A minor innacuracy (below) resulted in the value being registered as incorrect. Value has been upped.
+		if (abs((correct[i] - checking[i]) / checking[i]) >= 0.00001)	// FP calculation to determine if two values are equal enough
+		{
 			isCorrect = false;
 		}
 	}
