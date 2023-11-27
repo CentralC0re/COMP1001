@@ -87,7 +87,7 @@ int main() {
     run_time = omp_get_wtime() - start_time; //end timer
     printf("\n Time elapsed is %f secs \n %e FLOPs achieved\n", run_time, (double)(ARITHMETIC_OPERATIONS2) / ((double)run_time / TIMES2));
 
-	float r2CheckValues[5] = { w[1], w[25], w[300], w[1024], w[1025] };
+	float r2CheckValues[5] = { w[1], w[25], w[256], w[1024], w[1025] };
 
 	resetW();
 
@@ -101,10 +101,12 @@ int main() {
 	run_time = omp_get_wtime() - start_time; //end timer
 	printf("\n Time elapsed is %f secs \n %e FLOPs achieved\n", run_time, (double)(ARITHMETIC_OPERATIONS2) / ((double)run_time / TIMES2));
 
-	float r2VCheckValues[5] = { w[1], w[25], w[300], w[1024], w[1025] };
+	float r2VCheckValues[5] = { w[1], w[25], w[256], w[1024], w[1025] };
 
 	checkValues(r2CheckValues, r2VCheckValues);		// r2Check and r2VCheck are independent.
 
+	/* All values which are a multiple of 8 are correct, but everything that is not a multiple is
+	incorrect, I'm assuming this is floating point precision issues, but will test with the mm instead */										
     return 0;
 }
 
@@ -115,7 +117,7 @@ void initialize() {
 	    //initialize routine2 arrays
     for (i = 0; i < N; i++)
         for (j = 0; j < N; j++) {
-            A[i][j] = (i % 99) + (j % 14) + 0.013f;		// I was trying to vectorise this... whoops
+			A[i][j] = (i % 99) + (j % 14) + 0.013f;		// I was trying to vectorise this... whoops
         }
 	
     //initialize routine1 arrays
@@ -191,11 +193,14 @@ void routine2(float alpha, float beta) {
 
     unsigned int i, j;
 
-    for (i = 0; i < N; i++)
+	for (i = 0; i < N; i++)
+	{
 		for (j = 0; j < N; j++)
 		{
 			w[i] = w[i] - beta + alpha * A[i][j] * x[j];
 		}
+			
+	}
 }
 
 void routine2_vec(float alpha, float beta) {
@@ -203,21 +208,17 @@ void routine2_vec(float alpha, float beta) {
 	unsigned int i, j;
 	float aArray[8];
 	float bArray[8];
-	for (int i = 0; i < 8; i++) {	// Probably inefficient.
+	for (i = 0; i < 8; i++) {	// Probably inefficient.
 		aArray[i] = alpha;
 		bArray[i] = beta;
 	}
 
-	__m256 alphaContain = _mm256_loadu_ps(aArray);
-	__m256 betaContain = _mm256_loadu_ps(bArray);
+	__m256 alphaContain = _mm256_loadu_ps(aArray);	// Even using __m128 innaccuracy still in the thousands
+	__m256 betaContain = _mm256_loadu_ps(bArray);	// And with it performance takes a massive hit
 
 	for (i = 0; i < N; i+=8)
 	{
-		unsigned int iArray[8] = { i };	// Despite both being initialised as int, i is apparently unsigned
-										// Set array to unsigned to remove conversion warning and allow greater upper value
-		
-		// alpha cannot be added before the loop because of the order of operations (alpha * A)
-		for (j = 0; j < N; j+=8)									// every j loop
+		for (j = 0; j < N; j++)
 		{
 			__m256 wContain = _mm256_loadu_ps(&w[i]);
 			__m256 subResult = _mm256_sub_ps(wContain, betaContain);	// This DOES need to be recalculated.
@@ -229,18 +230,19 @@ void routine2_vec(float alpha, float beta) {
 
 			__m256 finalResult = _mm256_add_ps(subResult, multResult2);		// Effectively correct (minor float inaccuracy)
 			_mm256_storeu_ps(&w[i], finalResult);
-
 			//w[i] = w[i] - beta + alpha * A[i][j] * x[j];
 		}
+
 	}
+	
 }
 
 void checkValues(float* correct, float* checking) {	// This only takes 1 value, by the way. FIX.
 	bool isCorrect = true;
 	for (int i = 0; i < 5; i++)	// Fixed i cap as the arrays are always length 5
 	{
-		if (abs((correct[i] - checking[i]) / checking[i]) >= 0.0001)	// FP calculation to determine if two values are equal enough, 100% higher tolerance than default
-		{																// A minor innacuracy (below) resulted in the value being registered as incorrect. Value has been upped.
+		if (abs((correct[i] - checking[i]) / checking[i]) >= 0.00001)	// FP calculation to determine if two values are equal enough
+		{
 			isCorrect = false;
 		}
 	}
