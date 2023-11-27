@@ -52,7 +52,7 @@ int main()
         printf("\n\nThe new size of the array is: %d\n", n); 
   
         // Dynamically re-allocate memory using realloc() - re-allocation of memory maintains the already present value and new blocks will be initialized with default garbage value.
-        ptr = (int*) realloc(ptr, n * sizeof(int)); 
+        ptr = (int*) realloc(ptr, n * sizeof(int));	// This warning is resolved in the following line, silly IntelliSense
         if (ptr == NULL) { 
         printf("\nMemory not allocated.\n"); 
         exit(0); 

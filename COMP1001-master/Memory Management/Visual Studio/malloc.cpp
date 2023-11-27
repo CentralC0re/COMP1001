@@ -35,13 +35,13 @@ int main()
   
         // initialize the array 
         for (i = 0; i < n; ++i) { 
-            ptr[i] = i; 
-        } 
+            ptr[i] = i;				// Though watched value says it only has one element, it does update
+        }							// You can see this with the memory window.
   
         // Print the array 
         printf("\nThe elements of the array are: "); 
         for (i = 0; i < n; ++i) { 
-            printf("%d, ", ptr[i]); 
+            printf("%d, ", ptr[i]);	// As array variables are pointers anyway, you can treat this as one.
         } 
 
         // Free the memory 
