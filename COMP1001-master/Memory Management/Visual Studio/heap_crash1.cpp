@@ -5,9 +5,9 @@
 ------------------UNIVERSITY OF PLYMOUTH, SCHOOL OF ENGINEERING, COMPUTING AND MATHEMATICS---
 */
 
+// DO NOT RUN, CRASHES LAPTOP
 
-
-#include<stdio.h> 
+#include <stdio.h> 
 #include <stdlib.h> //for malloc
 #include <windows.h>  
   
@@ -34,8 +34,11 @@ int i;
 
 for ( i=0; i<N; i++) // do the following for N times
     {     
-       int *ptr = (int *)malloc(sizeof(int));  // Allocate 4 bytes of memory without freeing it 
-    } 
+       int *ptr = (int *)malloc(sizeof(int));  // Allocate 8 bytes of memory without freeing it 
+    }											// Causes a memory leak that continues until
+												// A: Out of Memory (probable system crash)
+												// B: Program crash
+												// C: i == N
 
 }
 
