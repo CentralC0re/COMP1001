@@ -32,7 +32,7 @@ void routine1(float alpha, float beta);
 void routine2(float alpha, float beta);
 void routine1_vec(float alpha, float beta);
 void routine2_vec(float alpha, float beta);
-void checkValues(float* correct, float* checking);
+void checkValues(float correct[5], float checking[5]);
 
 __declspec(align(64)) float  yReset[M], y[M], z[M] ;
 __declspec(align(64)) float A[N][N], x[N], wReset[N], w[N];
@@ -72,7 +72,7 @@ int main() {
     printf("\n Time elapsed is %f secs \n %e FLOPs achieved\n", run_time, (double)(ARITHMETIC_OPERATIONS1) / ((double)run_time / TIMES1));
 
 	float r1VCheckValues[5] = { y[1], y[25], y[300], y[1024], y[1025] }; // Check values from the result of routine1_vec
-																						// These may be incorrect.
+																		// These may be incorrect.
 	checkValues(r1CheckValues, r1VCheckValues);
 
 
@@ -213,7 +213,7 @@ void routine2_vec(float alpha, float beta) {
 		bArray[i] = beta;
 	}
 
-	__m256 alphaContain = _mm256_loadu_ps(aArray);	// Even using __m128 innaccuracy still in the thousands
+	__m256 alphaContain = _mm256_loadu_ps(aArray);	// Even using __m128 innaccuracy still significant
 	__m256 betaContain = _mm256_loadu_ps(bArray);	// And with it performance takes a massive hit
 
 	for (i = 0; i < N; i+=8)
@@ -221,29 +221,34 @@ void routine2_vec(float alpha, float beta) {
 		for (j = 0; j < N; j++)
 		{
 			__m256 wContain = _mm256_loadu_ps(&w[i]);
-			__m256 subResult = _mm256_sub_ps(wContain, betaContain);	// This DOES need to be recalculated.
 			__m256 arrAContain = _mm256_loadu_ps(&A[i][j]);
 			__m256 xContain = _mm256_loadu_ps(&x[j]);
 			
+			__m256 subResult = _mm256_sub_ps(wContain, betaContain);	// This needs recalculation (w updated every j)
 			__m256 multResult1 = _mm256_mul_ps(alphaContain, arrAContain);	// Correct result
 			__m256 multResult2 = _mm256_mul_ps(multResult1, xContain);		// Effectively correct (minor float inaccuracy)
-
 			__m256 finalResult = _mm256_add_ps(subResult, multResult2);		// Effectively correct (minor float inaccuracy)
+
+			// multResult2 and finalResult seem to be the problem, would it be possible to do these conventionally?
+			// And would it even fix everything?
+
 			_mm256_storeu_ps(&w[i], finalResult);
 			//w[i] = w[i] - beta + alpha * A[i][j] * x[j];
+
 		}
 
 	}
 	
 }
 
-void checkValues(float* correct, float* checking) {	// This only takes 1 value, by the way. FIX.
-	bool isCorrect = true;
+void checkValues(float correct[5], float checking[5]) {	// Having these as references breaks everything,
+	bool isCorrect = true;								// But not referencing only passes element 0 through
 	for (int i = 0; i < 5; i++)	// Fixed i cap as the arrays are always length 5
 	{
 		if (abs((correct[i] - checking[i]) / checking[i]) >= 0.00001)	// FP calculation to determine if two values are equal enough
 		{
 			isCorrect = false;
+			break;
 		}
 	}
 
