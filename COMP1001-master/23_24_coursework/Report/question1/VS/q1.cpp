@@ -15,7 +15,7 @@
 #include <immintrin.h>
 #include <omp.h>
 
-#define M 1024*512
+#define M 1023*513//1024*512
 #define ARITHMETIC_OPERATIONS1 3*M
 #define TIMES1 1
 
@@ -47,7 +47,6 @@ int main() {
 
 	//R1	-	Commented out so that y remains in its unmodified state.
 	//			Unless I edit Routine1 so it stores its results elsewhere, it must remain commented out
-	//			FIX THIS - "Your program must work for any input size value (any ‘N, M’ values)." Results cannot be hardcoded.
     printf("\nRoutine1:");
     start_time = omp_get_wtime(); //start timer
 
@@ -57,7 +56,24 @@ int main() {
     run_time = omp_get_wtime() - start_time; //end timer
     printf("\n Time elapsed is %f secs \n %e FLOPs achieved\n", run_time, (double)(ARITHMETIC_OPERATIONS1) / ((double)run_time / TIMES1));
     
-	float r1CheckValues[5] = { y[1], y[25], y[300], y[1024], y[1025] };
+	int MLoc = M/5;
+	float r1CheckValues[5] = {0, 0, 0, 0, 0};	// Was not seeming to be set to 0, manually set.
+	if (MLoc == 0)	// Division does not round up. If M < 5, MLoc = 0
+	{
+		r1CheckValues[0] = y[MLoc];
+	}
+	else if (MLoc < 0)
+	{
+		return -1;	// Invalid M
+	}
+	else {		// Space inefficient, but good enough.
+		 r1CheckValues[0] = y[MLoc];
+		 r1CheckValues[1] = y[MLoc * 2];
+		 r1CheckValues[2] = y[MLoc * 3];
+		 r1CheckValues[3] = y[MLoc * 4];
+		 r1CheckValues[4] = y[MLoc * 5];
+	}
+	 
 
 	resetY();
 
@@ -71,10 +87,27 @@ int main() {
     run_time = omp_get_wtime() - start_time; //end timer
     printf("\n Time elapsed is %f secs \n %e FLOPs achieved\n", run_time, (double)(ARITHMETIC_OPERATIONS1) / ((double)run_time / TIMES1));
 
-	float r1VCheckValues[5] = { y[1], y[25], y[300], y[1024], y[1025] }; // Check values from the result of routine1_vec
-																		// These may be incorrect.
-	checkValues(r1CheckValues, r1VCheckValues);
+	float r1VCheckValues[5] = { 0, 0, 0, 0, 0 }; // Check values from the result of routine1_vec
+												// These may be incorrect.
 
+	if (MLoc == 0)	// Could make this a function, but I have no idea if this is allowed.
+	{
+		r1VCheckValues[0] = y[MLoc];
+	}
+	else if (MLoc < 0)
+	{
+		return -1;	// Invalid M
+	}
+	else {
+		r1VCheckValues[0] = y[MLoc];
+		r1VCheckValues[1] = y[MLoc * 2];
+		r1VCheckValues[2] = y[MLoc * 3];
+		r1VCheckValues[3] = y[MLoc * 4];
+		r1VCheckValues[4] = y[MLoc * 5];
+	}
+
+	checkValues(r1CheckValues, r1VCheckValues);	// r1VCheckValues is correct on some odd numbers, but incorrect on others.
+												// Why?
 
 
 	//R2
@@ -87,7 +120,23 @@ int main() {
     run_time = omp_get_wtime() - start_time; //end timer
     printf("\n Time elapsed is %f secs \n %e FLOPs achieved\n", run_time, (double)(ARITHMETIC_OPERATIONS2) / ((double)run_time / TIMES2));
 
-	float r2CheckValues[5] = { w[1], w[25], w[256], w[1024], w[1025] };
+	int NLoc = N / 5;
+	float r2CheckValues[5] = { 0, 0, 0, 0, 0 };
+	if (NLoc == 0)
+	{
+		r2CheckValues[0] = w[NLoc];
+	}
+	else if (NLoc < 0)
+	{
+		return -1;	// Invalid N
+	}
+	else {
+		r2CheckValues[0] = w[NLoc];
+		r2CheckValues[1] = w[NLoc * 2];
+		r2CheckValues[2] = w[NLoc * 3];
+		r2CheckValues[3] = w[NLoc * 4];
+		r2CheckValues[4] = w[NLoc * 5];
+	}
 
 	resetW();
 
@@ -101,7 +150,22 @@ int main() {
 	run_time = omp_get_wtime() - start_time; //end timer
 	printf("\n Time elapsed is %f secs \n %e FLOPs achieved\n", run_time, (double)(ARITHMETIC_OPERATIONS2) / ((double)run_time / TIMES2));
 
-	float r2VCheckValues[5] = { w[1], w[25], w[256], w[1024], w[1025] };
+	float r2VCheckValues[5] = { 0, 0, 0, 0, 0 };
+	if (NLoc == 0)
+	{
+		r2VCheckValues[0] = w[NLoc];
+	}
+	else if (NLoc < 0)
+	{
+		return -1;	// Invalid N
+	}
+	else {
+		r2VCheckValues[0] = w[NLoc];
+		r2VCheckValues[1] = w[NLoc * 2];
+		r2VCheckValues[2] = w[NLoc * 3];
+		r2VCheckValues[3] = w[NLoc * 4];
+		r2VCheckValues[4] = w[NLoc * 5];
+	}
 
 	checkValues(r2CheckValues, r2VCheckValues);		// r2Check and r2VCheck are independent.
 
@@ -160,6 +224,9 @@ void routine1(float alpha, float beta) {
 
 void routine1_vec(float alpha, float beta) {
 
+	if (M < 8) {				// No point running this function if M is smaller than vectorisation size.
+		routine1_vec(alpha, beta);
+	}
     unsigned int i;
 	float aArray[8];
 	float bArray[8];
@@ -186,6 +253,15 @@ void routine1_vec(float alpha, float beta) {
 		_mm256_storeu_ps(&y[i], finalResult);		// Given sets of 8 values are consistently updating, it seems to work
 
 		//y[i] = alpha * y[i] + beta * z[i];
+
+		if (i + 8 >= M && i != M-1)	// If next iteration puts i above M, and i is not already at its final value
+		{
+			i+=8;
+			for (i; i < M; i++)	// With current code, this has a maximum loop count of 7.
+			{					// With improvements, this could only loop 3 times.
+				y[i] = alpha * y[i] + beta * z[i];
+			}	// I forgot that i through i + 7 run here. Naturally i + 8 is needed.
+		}
 	}
 }
 
