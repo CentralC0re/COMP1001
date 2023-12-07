@@ -15,7 +15,7 @@
 #include <immintrin.h>
 #include <omp.h>
 
-#define M 1023*513//1024*512
+#define M 1024*512
 #define ARITHMETIC_OPERATIONS1 3*M
 #define TIMES1 1
 
@@ -181,7 +181,7 @@ void initialize() {
 	    //initialize routine2 arrays
     for (i = 0; i < N; i++)
         for (j = 0; j < N; j++) {
-			A[i][j] = (i % 99) + (j % 14) + 0.013f;		// I was trying to vectorise this... whoops
+			A[i][j] = (i % 99) + (j % 14) + 0.013f;
         }
 	
     //initialize routine1 arrays
@@ -220,7 +220,7 @@ void routine1(float alpha, float beta) {
 
 	for (i = 0; i < M; i++)
 		y[i] = alpha * y[i] + beta * z[i];	// Rather than editing y itself, yRes is filled.
-}												// This means that both R1 and R1vec have the same array.
+}											// This means that both R1 and R1vec have the same array.
 
 void routine1_vec(float alpha, float beta) {
 
@@ -279,18 +279,18 @@ void routine2(float alpha, float beta) {
 	}
 }
 
-void routine2_vec(float alpha, float beta) {
-
-	unsigned int i, j;
-	float aArray[8];
-	float bArray[8];
+void routine2_vec(float alpha, float beta) {	// Apparently similar to MVM, check.
+												// MVM uses hadd (horizontal add) after j loop ends
+	unsigned int i, j;							// But this is a different calcultion.
+	float aArray[8];							// madd (multiply and add) is relevant here. Except there's it's
+	float bArray[8];							// integer only.
 	for (i = 0; i < 8; i++) {	// Probably inefficient.
 		aArray[i] = alpha;
 		bArray[i] = beta;
 	}
 
-	__m256 alphaContain = _mm256_loadu_ps(aArray);	// Even using __m128 innaccuracy still significant
-	__m256 betaContain = _mm256_loadu_ps(bArray);	// And with it performance takes a massive hit
+	__m256 alphaContain = _mm256_loadu_ps(aArray);	// __m128 does not fix this, unless required will not
+	__m256 betaContain = _mm256_loadu_ps(bArray);	// switch (severe performance loss)
 
 	for (i = 0; i < N; i+=8)
 	{
@@ -299,26 +299,22 @@ void routine2_vec(float alpha, float beta) {
 			__m256 wContain = _mm256_loadu_ps(&w[i]);
 			__m256 arrAContain = _mm256_loadu_ps(&A[i][j]);
 			__m256 xContain = _mm256_loadu_ps(&x[j]);
-			
+
 			__m256 subResult = _mm256_sub_ps(wContain, betaContain);	// This needs recalculation (w updated every j)
 			__m256 multResult1 = _mm256_mul_ps(alphaContain, arrAContain);	// Correct result
-			__m256 multResult2 = _mm256_mul_ps(multResult1, xContain);		// Effectively correct (minor float inaccuracy)
-			__m256 finalResult = _mm256_add_ps(subResult, multResult2);		// Effectively correct (minor float inaccuracy)
-
-			// multResult2 and finalResult seem to be the problem, would it be possible to do these conventionally?
-			// And would it even fix everything?
+			__m256 multResult2 = _mm256_mul_ps(multResult1, xContain);		// Almost correct (minor float inaccuracy)
+			__m256 finalResult = _mm256_add_ps(subResult, multResult2);		// Almost correct (minor float inaccuracy)
 
 			_mm256_storeu_ps(&w[i], finalResult);
 			//w[i] = w[i] - beta + alpha * A[i][j] * x[j];
-
 		}
 
 	}
 	
 }
 
-void checkValues(float correct[5], float checking[5]) {	// Having these as references breaks everything,
-	bool isCorrect = true;								// But not referencing only passes element 0 through
+void checkValues(float correct[5], float checking[5]) {	// Based on how it responded to the last value
+	bool isCorrect = true;								// Being invalid, this works fine, just doesn't show properly
 	for (int i = 0; i < 5; i++)	// Fixed i cap as the arrays are always length 5
 	{
 		if (abs((correct[i] - checking[i]) / checking[i]) >= 0.00001)	// FP calculation to determine if two values are equal enough
@@ -328,7 +324,6 @@ void checkValues(float correct[5], float checking[5]) {	// Having these as refer
 		}
 	}
 
-	printf("");
 	if (isCorrect) {
 		printf("Values match.\n");
 	}
