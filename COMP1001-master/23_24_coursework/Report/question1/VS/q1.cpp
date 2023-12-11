@@ -228,17 +228,9 @@ void routine1_vec(float alpha, float beta) {
 		routine1_vec(alpha, beta);
 	}
     unsigned int i;
-	float aArray[8];
-	float bArray[8];
-	for (int i = 0; i < 8; i++) {	// Probably inefficient.
-		aArray[i] = alpha;
-		bArray[i] = beta;
-	}
 
-	__m256 aContain = _mm256_loadu_ps(aArray);
-	__m256 bContain = _mm256_loadu_ps(bArray);
-	// Attempted to manually destroy a and b arrays, but it's far too much effort for
-	// very little memory saving.
+	__m256 aContain = _mm256_set1_ps(alpha);	// Sets all 8 values to alpha, rather than needing a for loop
+	__m256 bContain = _mm256_set1_ps(beta);		// More performant
 
 	__m256 finalResult;
 
@@ -280,35 +272,50 @@ void routine2(float alpha, float beta) {
 }
 
 void routine2_vec(float alpha, float beta) {	// Apparently similar to MVM, check.
-												// MVM uses hadd (horizontal add) after j loop ends
-	unsigned int i, j;							// But this is a different calcultion.
-	float aArray[8];							// madd (multiply and add) is relevant here. Except there's it's
-	float bArray[8];							// integer only.
-	for (i = 0; i < 8; i++) {	// Probably inefficient.
-		aArray[i] = alpha;
-		bArray[i] = beta;
-	}
+												// hadd is necessary, why? No clue.
+	unsigned int i, j;
 
-	__m256 alphaContain = _mm256_loadu_ps(aArray);	// __m128 does not fix this, unless required will not
-	__m256 betaContain = _mm256_loadu_ps(bArray);	// switch (severe performance loss)
+	__m128 alphaContain = _mm_set1_ps(alpha);// More performant than the previous for loop.
+	__m128 betaContain = _mm_set1_ps(beta);
 
-	for (i = 0; i < N; i+=8)
-	{
-		for (j = 0; j < N; j++)
+	for (i = 0; i < N; i++)
+	{						// Either i or j can be vectorised (+=8), but not both
+							// (Without further logic)
+		for (j = 0; j < N; j+=4)
 		{
-			__m256 wContain = _mm256_loadu_ps(&w[i]);
-			__m256 arrAContain = _mm256_loadu_ps(&A[i][j]);
-			__m256 xContain = _mm256_loadu_ps(&x[j]);
+			__m128 wContain = _mm_set1_ps(w[i]);		// wContain has i=[0]
+			__m128 arrAContain = _mm_loadu_ps(&A[i][j]);	// arrAContain has i=[0] j=[0:7]
+			__m128 xContain = _mm_loadu_ps(&x[j]);		// xContain has j=[0:7]
 
-			__m256 subResult = _mm256_sub_ps(wContain, betaContain);	// This needs recalculation (w updated every j)
-			__m256 multResult1 = _mm256_mul_ps(alphaContain, arrAContain);	// Correct result
-			__m256 multResult2 = _mm256_mul_ps(multResult1, xContain);		// Almost correct (minor float inaccuracy)
-			__m256 finalResult = _mm256_add_ps(subResult, multResult2);		// Almost correct (minor float inaccuracy)
+			__m128 subResult = _mm_sub_ps(wContain, betaContain);		// This needs recalculation (w updated every j)
+			__m128 multResult = _mm_mul_ps(alphaContain, arrAContain);
+			__m128 finalResult = _mm_fmadd_ps(multResult, xContain, subResult);	//multResult * xContain + subResult
+			// fmadd is probably faster, and uses less memory.
 
-			_mm256_storeu_ps(&w[i], finalResult);
+			_mm_store_ss(&w[i], finalResult);	// This must store only to w[1]
+			
+			// Switched to __m128, values are no longer comparable.
+			// See where hadd is to be used.
+
 			//w[i] = w[i] - beta + alpha * A[i][j] * x[j];
-		}
 
+			/* SOLUTION:
+			w changes every calculation, but we are calculating w 8 times.
+			Everything other than the first calculation is slightly wrong, and this
+			carries to the next j.
+			
+			w is i based, not j. This means it only changes after the inner for loop
+			concludes.
+
+			As j repeats 8192 times, w gets incredibly incorrect.
+
+			hadd all versions of w to get an accurate value?
+			hadd(finalResult,finalResult) does not work (result = infinity).
+			What should the second arg be?
+			NOT: hadd(subRes,multRes2)	results are multRes2 added with itself and subRes added with itself
+			
+			*/
+		}
 	}
 	
 }
