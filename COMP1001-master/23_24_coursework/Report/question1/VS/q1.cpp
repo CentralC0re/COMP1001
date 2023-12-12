@@ -329,9 +329,15 @@ void routine2_vec(float alpha, float beta) {
 		wContain = _mm_hadd_ps(wContain, wContain);
 		
 		_mm_store_ss(&w[i], wContain);	// Only stores wContain[0]
-		w[i] += toStore;				// Stores backup values.
+		w[i] += toStore;				// Stores non-x4 N calculated values.
 
-		// Results are between ~2 and 30 off. Cause unknown.
+		// Results are between ~2 and 30 off.
+		// Based on testing (below), the error is due to w not being updated. [0] is correct, [1] is wrong, [2] is wrong, [3] is wrong.
+		// Cannot fix this while remaining parallel?
+		//			Expected			Result
+		//Loop 1: -0.0470029935		-0.0470029935
+		//Loop 2: -0.0689369813		-0.0239339899
+		//Loop 3: -0.0218019709		 0.0451350063
 	}
 	
 }
