@@ -170,8 +170,9 @@ int main() {
 	//r2CheckValues	{102088.211, 25898.4395, 117328.445, 41135.9492, 132564.641}	float[5]
 
 	//r2VCheckValues {102108.281, 25901.2656, 117352.219, 41145.1289, 132575.812}	float[5]
-
-
+	
+	// Differences:	20.07,	2.8261,	23.774
+	// Same results before and after change.
 
 	checkValues(r2CheckValues, r2VCheckValues);		// r2Check and r2VCheck are independent.
 
@@ -277,39 +278,60 @@ void routine2(float alpha, float beta) {
 	}
 }
 
-void routine2_vec(float alpha, float beta) {	// Apparently similar to MVM, check.
-												// Currently, routine2_vec is SLOWER than routine2
-	unsigned int i, j;							// Fixed with 256, but this is currently nonfunctional
+void routine2_vec(float alpha, float beta) {
+	
+	if (N < 4)
+	{
+		routine2;
+	}
 
-	__m128 alphaContain = _mm_set1_ps(alpha);// More performant than the previous for loop.
+	unsigned int i, j;
+
+	__m128 alphaContain = _mm_set1_ps(alpha);	// More performant than a for loop.
 	__m128 betaContain = _mm_set1_ps(beta);
 
+	__m128 wContain;		// Prevents constant redefinition.
+	__m128 arrAContain;
+	__m128 xContain;
+	__m128 subResult;
+	__m128 multResult;
+	float toStore = 0;			// Stores results if N is not a multiple of 4.
+
 	for (i = 0; i < N; i++)
-	{						// Either i or j can be vectorised (+=8), but not both
+	{						// Either i or j can be vectorised (+=4), but not both
 							// (Without further logic)
-		__m128 wContain = _mm_set1_ps(w[i]);		// wContain has i=[0]
-		__m128 finalResult;
+		wContain = _mm_set1_ps(w[i]);		// wContain has i=[0]
 		
 		for (j = 0; j < N; j+=4)
 		{
-			__m128 arrAContain = _mm_loadu_ps(&A[i][j]);	// arrAContain has i=[0] j=[0:7]
-			__m128 xContain = _mm_loadu_ps(&x[j]);		// xContain has j=[0:7]
+			arrAContain = _mm_loadu_ps(&A[i][j]);	// arrAContain has i=[0] j=[0:3]
+			xContain = _mm_loadu_ps(&x[j]);		// xContain has j=[0:3]
 
-			__m128 subResult = _mm_sub_ps(wContain, betaContain);		// This needs recalculation (w updated every j)
-			__m128 multResult = _mm_mul_ps(alphaContain, arrAContain);
-			finalResult = _mm_fmadd_ps(multResult, xContain, subResult);	//multResult * xContain + subResult
-			wContain = finalResult;
+			subResult = _mm_sub_ps(wContain, betaContain);		// This needs recalculation (w updated every j)
+			multResult = _mm_mul_ps(alphaContain, arrAContain);
+			wContain = _mm_fmadd_ps(multResult, xContain, subResult);	//multResult * xContain + subResult
+			//subResult may need to be wContain, but this excacerbates the problem (as no subtraction occurs)
 			
-			// Switched to __m128, values are no longer comparable.
-			// See where hadd is to be used.
-
 			//w[i] = w[i] - beta + alpha * A[i][j] * x[j];
-		}
-		__m128 empty = _mm_setzero_ps();
-		finalResult = _mm_hadd_ps(finalResult, empty);
-		finalResult = _mm_hadd_ps(finalResult, empty);
-		_mm_store_ss(&w[i], finalResult);	// Only stores finalResult[0]
 
+			// Handling non-x4 N values		- TEST ONCE NORMAL WORKS.
+			if (j + 4 > N)
+			{
+				toStore = w[i];
+				for (j; j < N; j++)
+				{
+					toStore = toStore - beta + alpha * A[i][j] * x[j];
+				}
+			}
+		}
+
+		wContain = _mm_hadd_ps(wContain, wContain);	// Only [0] has a value by end.
+		wContain = _mm_hadd_ps(wContain, wContain);
+		
+		_mm_store_ss(&w[i], wContain);	// Only stores wContain[0]
+		w[i] += toStore;				// Stores backup values.
+
+		// Results are between ~2 and 30 off. Cause unknown.
 	}
 	
 }
