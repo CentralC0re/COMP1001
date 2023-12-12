@@ -295,6 +295,9 @@ void routine2_vec(float alpha, float beta) {
 	__m128 xContain;
 	__m128 subResult;
 	__m128 multResult;
+	//__m128 multResult2;
+	//__m128 addResult;
+
 	float toStore = 0;			// Stores results if N is not a multiple of 4.
 
 	for (i = 0; i < N; i++)
@@ -310,26 +313,29 @@ void routine2_vec(float alpha, float beta) {
 			subResult = _mm_sub_ps(wContain, betaContain);		// This needs recalculation (w updated every j)
 			multResult = _mm_mul_ps(alphaContain, arrAContain);
 			wContain = _mm_fmadd_ps(multResult, xContain, subResult);	//multResult * xContain + subResult
+			
+			/*
+			INVERTED OPERATIONS (suggested by Vasilios)
+			multResult = _mm_mul_ps(arrAContain, xContain);
+			multResult2 = _mm_mul_ps(alphaContain, multResult);
+			addResult = _mm_add_ps(betaContain, multResult2);
+			wContain = _mm_sub_ps(wContain, addResult);
+
+			Values are as wrong as they were originally, but now they're negative.
+			May have interpreted wrong.
+			*/
+
 			//subResult may need to be wContain, but this excacerbates the problem (as no subtraction occurs)
 			
 			//w[i] = w[i] - beta + alpha * A[i][j] * x[j];
 
-			// Handling non-x4 N values		- TEST ONCE NORMAL WORKS.
-			if (j + 4 > N)
-			{
-				toStore = w[i];
-				for (j; j < N; j++)
-				{
-					toStore = toStore - beta + alpha * A[i][j] * x[j];
-				}
-			}
+
 		}
 
 		wContain = _mm_hadd_ps(wContain, wContain);	// Only [0] has a value by end.
 		wContain = _mm_hadd_ps(wContain, wContain);
 		
 		_mm_store_ss(&w[i], wContain);	// Only stores wContain[0]
-		w[i] += toStore;				// Stores non-x4 N calculated values.
 
 		// Results are between ~2 and 30 off.
 		// Based on testing (below), the error is due to w not being updated. [0] is correct, [1] is wrong, [2] is wrong, [3] is wrong.
