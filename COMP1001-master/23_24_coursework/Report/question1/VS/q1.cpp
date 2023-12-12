@@ -167,6 +167,12 @@ int main() {
 		r2VCheckValues[4] = w[NLoc * 5];
 	}
 
+	//r2CheckValues	{102088.211, 25898.4395, 117328.445, 41135.9492, 132564.641}	float[5]
+
+	//r2VCheckValues {102108.281, 25901.2656, 117352.219, 41145.1289, 132575.812}	float[5]
+
+
+
 	checkValues(r2CheckValues, r2VCheckValues);		// r2Check and r2VCheck are independent.
 
 	/* All values which are a multiple of 8 are correct, but everything that is not a multiple is
@@ -272,8 +278,8 @@ void routine2(float alpha, float beta) {
 }
 
 void routine2_vec(float alpha, float beta) {	// Apparently similar to MVM, check.
-												// hadd is necessary, why? No clue.
-	unsigned int i, j;
+												// Currently, routine2_vec is SLOWER than routine2
+	unsigned int i, j;							// Fixed with 256, but this is currently nonfunctional
 
 	__m128 alphaContain = _mm_set1_ps(alpha);// More performant than the previous for loop.
 	__m128 betaContain = _mm_set1_ps(beta);
@@ -281,41 +287,29 @@ void routine2_vec(float alpha, float beta) {	// Apparently similar to MVM, check
 	for (i = 0; i < N; i++)
 	{						// Either i or j can be vectorised (+=8), but not both
 							// (Without further logic)
+		__m128 wContain = _mm_set1_ps(w[i]);		// wContain has i=[0]
+		__m128 finalResult;
+		
 		for (j = 0; j < N; j+=4)
 		{
-			__m128 wContain = _mm_set1_ps(w[i]);		// wContain has i=[0]
 			__m128 arrAContain = _mm_loadu_ps(&A[i][j]);	// arrAContain has i=[0] j=[0:7]
 			__m128 xContain = _mm_loadu_ps(&x[j]);		// xContain has j=[0:7]
 
 			__m128 subResult = _mm_sub_ps(wContain, betaContain);		// This needs recalculation (w updated every j)
 			__m128 multResult = _mm_mul_ps(alphaContain, arrAContain);
-			__m128 finalResult = _mm_fmadd_ps(multResult, xContain, subResult);	//multResult * xContain + subResult
-			// fmadd is probably faster, and uses less memory.
-
-			_mm_store_ss(&w[i], finalResult);	// This must store only to w[1]
+			finalResult = _mm_fmadd_ps(multResult, xContain, subResult);	//multResult * xContain + subResult
+			wContain = finalResult;
 			
 			// Switched to __m128, values are no longer comparable.
 			// See where hadd is to be used.
 
 			//w[i] = w[i] - beta + alpha * A[i][j] * x[j];
-
-			/* SOLUTION:
-			w changes every calculation, but we are calculating w 8 times.
-			Everything other than the first calculation is slightly wrong, and this
-			carries to the next j.
-			
-			w is i based, not j. This means it only changes after the inner for loop
-			concludes.
-
-			As j repeats 8192 times, w gets incredibly incorrect.
-
-			hadd all versions of w to get an accurate value?
-			hadd(finalResult,finalResult) does not work (result = infinity).
-			What should the second arg be?
-			NOT: hadd(subRes,multRes2)	results are multRes2 added with itself and subRes added with itself
-			
-			*/
 		}
+		__m128 empty = _mm_setzero_ps();
+		finalResult = _mm_hadd_ps(finalResult, empty);
+		finalResult = _mm_hadd_ps(finalResult, empty);
+		_mm_store_ss(&w[i], finalResult);	// Only stores finalResult[0]
+
 	}
 	
 }
