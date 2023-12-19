@@ -280,47 +280,45 @@ void routine2(float alpha, float beta) {
 
 void routine2_vec(float alpha, float beta) {
 	
-	if (N < 4)
+	if (N < 8)
 	{
-		routine2;
+		routine2(alpha, beta);
 	}
 
-	unsigned int i, j;
+	unsigned int i, j, k;
+	float noVecArr[8];
+	float multResultArr[8];
 
-	__m128 alphaContain = _mm_set1_ps(alpha);	// More performant than a for loop.
-	__m128 betaContain = _mm_set1_ps(beta);
+	__m256 alphaContain = _mm256_set1_ps(alpha);	// More performant than a for loop.
 
-	__m128 wContain;		// Prevents constant redefinition.
-	__m128 arrAContain;
-	__m128 xContain;
-	__m128 subResult;
-	__m128 multResult;
-	//__m128 multResult2;
-	//__m128 addResult;
+	__m256 arrAContain;		// Prevents constant redefinition.
+	__m256 xContain;
+	__m256 multResult;
+	__m256 multResult2;
 
 	float toStore = 0;			// Stores results if N is not a multiple of 4.
 
 	for (i = 0; i < N; i++)
 	{						// Either i or j can be vectorised (+=4), but not both
 							// (Without further logic)
-		wContain = _mm_set1_ps(w[i]);		// wContain has i=[0]
+		//wContain = _mm_set1_ps(w[i]);		// wContain has i=[0]
 		
-		for (j = 0; j < N; j+=4)
+		for (j = 0; j < N; j+=8)
 		{
-			arrAContain = _mm_loadu_ps(&A[i][j]);	// arrAContain has i=[0] j=[0:3]
-			xContain = _mm_loadu_ps(&x[j]);		// xContain has j=[0:3]
+			arrAContain = _mm256_loadu_ps(&A[i][j]);	// arrAContain has i=[0] j=[0:3]
+			xContain = _mm256_loadu_ps(&x[j]);		// xContain has j=[0:3]
 
-			subResult = _mm_sub_ps(wContain, betaContain);		// This needs recalculation (w updated every j)
-			multResult = _mm_mul_ps(alphaContain, arrAContain);
-			wContain = _mm_fmadd_ps(multResult, xContain, subResult);	//multResult * xContain + subResult
+			//subResult = _mm_sub_ps(wContain, betaContain);		// This needs recalculation (w updated every j)
+			multResult = _mm256_mul_ps(alphaContain, arrAContain);
+			multResult2 = _mm256_mul_ps(multResult, xContain);
+
+			_mm256_storeu_ps(&multResultArr[0], multResult2);	// The following section is not vectorised, stored back.
+			for (k = 0; k < 8; k++)
+			{
+				w[i] = w[i] - beta + multResultArr[k];	
+			}
 			
 			/*
-			INVERTED OPERATIONS (suggested by Vasilios)
-			multResult = _mm_mul_ps(arrAContain, xContain);
-			multResult2 = _mm_mul_ps(alphaContain, multResult);
-			addResult = _mm_add_ps(betaContain, multResult2);
-			wContain = _mm_sub_ps(wContain, addResult);
-
 			Values are as wrong as they were originally, but now they're negative.
 			May have interpreted wrong.
 			*/
@@ -332,10 +330,10 @@ void routine2_vec(float alpha, float beta) {
 
 		}
 
-		wContain = _mm_hadd_ps(wContain, wContain);	// Only [0] has a value by end.
-		wContain = _mm_hadd_ps(wContain, wContain);
+		//wContain = _mm_hadd_ps(wContain, wContain);	// Only [0] has a value by end.
+		//wContain = _mm_hadd_ps(wContain, wContain);
 		
-		_mm_store_ss(&w[i], wContain);	// Only stores wContain[0]
+		//_mm_store_ss(&w[i], wContain);	// Only stores wContain[0]
 
 		// Results are between ~2 and 30 off.
 		// Based on testing (below), the error is due to w not being updated. [0] is correct, [1] is wrong, [2] is wrong, [3] is wrong.
