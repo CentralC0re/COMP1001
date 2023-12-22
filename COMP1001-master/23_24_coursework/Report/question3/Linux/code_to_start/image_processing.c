@@ -27,9 +27,9 @@ void openfile(char *filename, FILE** finput);
 int getint(FILE *fp);
 
 //CRITICAL POINT: images' paths - You need to change these paths
-#define IN "/home/wave/Desktop/comp1001/code_to_start/input_images/a15.pgm"
-#define OUT "/home/wave/Desktop/comp1001/code_to_start/output_images/blurred.pgm"
-#define OUT2 "/home/wave/Desktop/comp1001/code_to_start/output_images/edge_detection.pgm"
+//#define IN "/home/wave/Desktop/comp1001/code_to_start/input_images/a15.pgm"
+//#define OUT "/home/wave/Desktop/comp1001/code_to_start/output_images/blurred.pgm"
+//#define OUT2 "/home/wave/Desktop/comp1001/code_to_start/output_images/edge_detection.pgm"
 
 //IMAGE DIMENSIONS
 #define M 475 //cols
@@ -65,19 +65,28 @@ const signed char GyMask[3][3] = {
 char header[100];
 
 
-int main( ){
+int main(int argc, char *argv[]){   // No order of arguments provided, assuming IN, OUT, OUT2
 
-	
- read_image(IN);//read image from disc
+if (argc == 4)  // argv contains the program call. Strange.
+{	
+ read_image(argv[1]);//read image from disc
 
  Gaussian_Blur( ); //blur the image (reduce noise)
  Sobel( ); //apply edge detection
 
- write_image2(OUT,filt); //store output image to the disc
- write_image2(OUT2,gradient); //store output image to the disc
+ write_image2(argv[2],filt); //store output image to the disc
+ write_image2(argv[3],gradient); //store output image to the disc
 	
 
     return 0;
+}
+else 
+{
+  printf("Invalid arguments:\n");
+  for (int i = 0; i < argc; i++)
+    printf("%s\t",argv[i]);
+  return -1;
+}
 }
 
 
@@ -140,6 +149,7 @@ void Sobel( ){
 			gradient[M*row+col] = (unsigned char) sqrt(Gx*Gx + Gy*Gy); /* Calculate gradient strength		*/
 			//gradient[row][col] = abs(Gx) + abs(Gy); // this is an optimized version of the above
 
+      // WARNING: sqrt() is not found with gcc
 		}
 	}
 
