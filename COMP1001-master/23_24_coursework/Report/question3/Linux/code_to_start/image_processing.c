@@ -149,7 +149,6 @@ void Sobel( ){
 			gradient[M*row+col] = (unsigned char) sqrt(Gx*Gx + Gy*Gy); /* Calculate gradient strength		*/
 			//gradient[row][col] = abs(Gx) + abs(Gy); // this is an optimized version of the above
 
-      // WARNING: sqrt() is not found with gcc
 		}
 	}
 

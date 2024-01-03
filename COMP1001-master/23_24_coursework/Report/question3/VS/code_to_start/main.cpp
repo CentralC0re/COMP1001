@@ -5,6 +5,7 @@
 ------------------UNIVERSITY OF PLYMOUTH, SCHOOL OF ENGINEERING, COMPUTING AND MATHEMATICS---
 */
 
+//In Linux compile using : gcc image_processing.c   -o p -O3  -lm  
 
 #include <stdio.h>
 #include <string.h>
@@ -16,29 +17,31 @@
 #include <immintrin.h>
 
 //function declarations
-void Gaussian_Blur();
-void Sobel();
-int initialize_kernel();
-void read_image(const char* filename);
+void Gaussian_Blur(unsigned char* frame1, unsigned char* filt);
+void Sobel(unsigned char* filt, unsigned char* gradient);
+//int initialize_kernel();	 Pretty sure this is for Linux, ignore.
+int read_image(char* filename, unsigned char** frame1, unsigned char** filt, unsigned char** gradient);
 void read_image_and_put_zeros_around(char* filename);
-void write_image2(const char* filename, unsigned char* output_image);
-void openfile(const char* filename, FILE** finput);
+void write_image2(char* filename, unsigned char* output_image);
+int openfile(char* filename, FILE** finput);
 int getint(FILE* fp);
+unsigned char* allocateArr();
+char* allocatePath(unsigned int size);		// If path arrays stay static, this function becomes irrelevant, REMOVE.
 
 //CRITICAL POINT: images' paths - You need to change these paths
-#define IN "C:\\Users\\vboxuser\\source\\repos\\image_processing\\image_processing\\input_images\\a1.pgm"
-#define OUT "C:\\Users\\vboxuser\\source\\repos\\image_processing\\image_processing\\output_images\\blurred.pgm"
-#define OUT2 "C:\\Users\\vboxuser\\source\\repos\\image_processing\\image_processing\\output_images\\edge_detection.pgm"
+//#define IN "/home/wave/Desktop/comp1001/code_to_start/input_images/a15.pgm"
+//#define OUT "/home/wave/Desktop/comp1001/code_to_start/output_images/blurred.pgm"
+//#define OUT2 "/home/wave/Desktop/comp1001/code_to_start/output_images/edge_detection.pgm"
 
-//IMAGE DIMENSIONS
-#define M 512  //cols
-#define N 512  //rows
+//IMAGE DIMENSIONS	-	Variable, should not be hardcoded.
+unsigned int M = 0; //cols
+unsigned int N = 0; //rows
 
 
 //CRITICAL POINT:these arrays are defined statically. Consider creating these arrays dynamically instead.
-unsigned char frame1[N * M];//input image
-unsigned char filt[N * M];//output filtered image
-unsigned char gradient[N * M];//output image
+//unsigned char frame1[N * M];//input image
+//unsigned char filt[N * M];//output filtered image
+//unsigned char gradient[N * M];//output image
 
 
 const signed char Mask[5][5] = {//2d gaussian mask with integers
@@ -62,28 +65,87 @@ const signed char GyMask[3][3] = {
 };
 
 char header[100];
-errno_t err;
-
-int main() {
 
 
-	read_image(IN);//read image from disc
+int main(int argc, char* argv[]) {   // No order of arguments provided, assuming IN, OUT.
 
-	Gaussian_Blur(); //blur the image (reduce noise)
-	Sobel(); //apply edge detection
+	if (argc == 3)
+	{
+		bool endOfFolder = false;
+		int i = 0;
+		
+		unsigned int pathLength = sizeof(argv[1]);
+		//char* iFolderPath = allocatePath(pathLength);		TEMPORARY REMOVAL
+		char iFolderPath[257];
+		char oFolderPath[257];
+		char oFolderPathConcat[257];
 
-	write_image2(OUT, filt); //store output image to the disc
-	write_image2(OUT2, gradient); //store output image to the disc
+		char iFileName[16];
+		char bFileName[22];	// Max int puts this at 21 chars (22 with terminator)
+		char eFileName[29];	// Max int puts this at 28 chars (29 with terminator)
 
+		int result;			// Checks if read file worked
+		for (i; !endOfFolder; i++)
+		{
+			strcpy(iFolderPath, argv[1]);	// ifolderPath = argv[1]
+			strcpy(oFolderPath, argv[2]);
+			strcpy(oFolderPathConcat, oFolderPath);
 
-	return 0;
+			// a-.pgm	Filename from 6-16 chars
+			//char* fileName = allocatePath(5+)	// How to make this dynamic? It only increases if digits increase, but this is a really inefficient calculation.
+			sprintf(iFileName, "/a%d.pgm", i);
+			sprintf(bFileName, "/blurred%d.pgm", i);
+			sprintf(eFileName, "/edge_detection%d.pgm", i);
+
+			
+			strcat(iFolderPath, iFileName);
+			strcat(oFolderPath, bFileName);
+			strcat(oFolderPathConcat, eFileName);
+
+			unsigned char* frame1;
+			unsigned char* filt;
+			unsigned char* gradient;
+			result = read_image(iFolderPath, &frame1, &filt, &gradient);//read image from disc
+			if (result == -1)
+			{
+				if (i == 0)
+				{
+					return EXIT_FAILURE;
+				}
+				else 
+				{
+					printf("All files read\n");
+					return EXIT_SUCCESS;
+				}
+			}
+
+			Gaussian_Blur(frame1, filt); //blur the image (reduce noise)
+			Sobel(filt, gradient); //apply edge detection
+
+			write_image2(oFolderPath, filt); //store output image to the disc
+			write_image2(oFolderPathConcat, gradient); //store output image to the disc
+
+			free(frame1);
+			free(filt);
+			free(gradient);
+		}
+		//free(iFolderPath);
+		return 0;
+	}
+	else
+	{
+		printf("Invalid arguments:\n");
+		for (int i = 0; i < argc; i++)
+			printf("%s\t", argv[i]);
+		return -1;
+	}
 }
 
 
 
 
 
-void Gaussian_Blur() {
+void Gaussian_Blur(unsigned char* frame1, unsigned char* filt) {
 
 	int row, col, rowOffset, colOffset;
 	int newPixel;
@@ -115,7 +177,7 @@ void Gaussian_Blur() {
 }
 
 
-void Sobel() {
+void Sobel(unsigned char* filt, unsigned char* gradient) {
 
 	int row, col, rowOffset, colOffset;
 	int Gx, Gy;
@@ -148,7 +210,7 @@ void Sobel() {
 
 
 
-void read_image(const char* filename)
+int read_image(char* filename, unsigned char** frame1, unsigned char** filt, unsigned char** gradient)	// This must run for every file in the folder.
 {
 
 	int c;
@@ -157,55 +219,60 @@ void read_image(const char* filename)
 
 	printf("\nReading %s image from disk ...", filename);
 	finput = NULL;
-	openfile(filename, &finput);
+	int result = openfile(filename, &finput);
+	if (result == -1)
+	{
+		return result;
+	}
 
-	if ((header[0] == 'P') && (header[1] == '5')) { //if P5 image
+	*frame1 = allocateArr();
+	*filt = allocateArr();
+	*gradient = allocateArr();
 
+	if ((header[0] == 'P') && (header[1] == '2')) {
 		for (j = 0; j < N; j++) {
 			for (i = 0; i < M; i++) {
 
-				//if (fscanf_s(finput, "%d", &temp,20) == EOF)
-				//	exit(EXIT_FAILURE);
-				temp = getc(finput);
+				if (fscanf(finput, "%d", &temp) == EOF)	// fscanf is a security vulnerability, as is fopen.
+					exit(EXIT_FAILURE);
 
-				frame1[M * j + i] = (unsigned char)temp;
+				(*frame1)[M * j + i] = (unsigned char)temp;
 			}
 		}
 	}
-	else if ((header[0] == 'P') && (header[1] == '2'))  { //if P2 image
+	else if ((header[0] == 'P') && (header[1] == '5')) {
 		for (j = 0; j < N; j++) {
 			for (i = 0; i < M; i++) {
-
-				if (fscanf_s(finput, "%d", &temp,20) == EOF)
-					exit(EXIT_FAILURE);
-
-				frame1[M * j + i] = (unsigned char)temp;
+				c = getc(finput);
+				(*frame1)[M * j + i] = (unsigned char)c;	// Application did not realise what frame1 was, brackets resolve the issue.
 			}
 		}
 	}
 	else {
-		printf("\nproblem with reading the image");
+		printf("\n problem with reading image");
 		exit(EXIT_FAILURE);
 	}
+
 
 	fclose(finput);
 	printf("\nimage successfully read from disc\n");
 
+	return 0;
 }
 
 
 
-void write_image2(const char* filename, unsigned char* output_image)
+void write_image2(char* filename, unsigned char* output_image)
 {
 
 	FILE* foutput;
 	int i, j;
 
-
+	foutput = fopen(filename, "wb");
 
 	printf("  Writing result to disk ...\n");
 
-	if ((err = fopen_s(&foutput,filename, "wb")) != NULL) {
+	if ((foutput = fopen(filename, "wb")) == NULL) {
 		fprintf(stderr, "Unable to open file %s for writing\n", filename);
 		exit(-1);
 	}
@@ -229,35 +296,49 @@ void write_image2(const char* filename, unsigned char* output_image)
 
 
 
-void openfile(const char* filename, FILE** finput)
+int openfile(char* filename, FILE** finput)
 {
-	int x0, y0, x , aa;
+	int x0, y0, x;
 
-	if (( err = fopen_s(finput,filename, "rb")) != NULL) {
+	//int aa;
+
+	if ((*finput = fopen(filename, "rb")) == NULL) {
 		fprintf(stderr, "Unable to open file %s for reading\n", filename);
-		exit(-1);
+		return -1;
 	}
 
-	aa = fscanf_s(*finput, "%s", header, 20);
+	if (fscanf(*finput, "%s", header) == EOF)
+		exit(EXIT_FAILURE);
 
 	x0 = getint(*finput);//this is M
 	y0 = getint(*finput);//this is N
 	printf("\t header is %s, while x=%d,y=%d", header, x0, y0);
 
-
 	//CRITICAL POINT: AT THIS POINT YOU CAN ASSIGN x0,y0 to M,N 
-	// printf("\n Image dimensions are M=%d,N=%d",M,N);
+	M = x0;
+	N = y0;
+	printf("\n Image dimensions are M=%d,N=%d\n",M,N);
 
 
 	x = getint(*finput); /* read and throw away the range info */
 	//printf("\n range info is %d",x);
-
+	return 0;
 }
 
 
 
 //CRITICAL POINT: you can define your routines here that create the arrays dynamically; now, the arrays are defined statically.
+unsigned char* allocateArr()	// All 3 are the same type and length, run in a for.
+{
+	
+	return (unsigned char*)malloc(M * N * sizeof(unsigned char));
 
+}
+
+char* allocatePath(unsigned int size)
+{
+	return (char*)malloc(size);
+}
 
 
 int getint(FILE* fp) /* adapted from "xv" source code */
