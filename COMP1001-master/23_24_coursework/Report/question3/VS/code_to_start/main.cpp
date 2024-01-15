@@ -5,7 +5,6 @@
 ------------------UNIVERSITY OF PLYMOUTH, SCHOOL OF ENGINEERING, COMPUTING AND MATHEMATICS---
 */
 
-//In Linux compile using : gcc image_processing.c   -o p -O3  -lm  
 
 #include <stdio.h>
 #include <string.h>
@@ -75,7 +74,6 @@ int main(int argc, char* argv[]) {   // No order of arguments provided, assuming
 		int i = 0;
 		
 		unsigned int pathLength = sizeof(argv[1]);
-		//char* iFolderPath = allocatePath(pathLength);		TEMPORARY REMOVAL
 		char iFolderPath[257];
 		char oFolderPath[257];
 		char oFolderPathConcat[257];
@@ -92,7 +90,6 @@ int main(int argc, char* argv[]) {   // No order of arguments provided, assuming
 			strcpy(oFolderPathConcat, oFolderPath);
 
 			// a-.pgm	Filename from 6-16 chars
-			//char* fileName = allocatePath(5+)	// How to make this dynamic? It only increases if digits increase, but this is a really inefficient calculation.
 			sprintf(iFileName, "/a%d.pgm", i);
 			sprintf(bFileName, "/blurred%d.pgm", i);
 			sprintf(eFileName, "/edge_detection%d.pgm", i);
@@ -129,7 +126,6 @@ int main(int argc, char* argv[]) {   // No order of arguments provided, assuming
 			free(filt);
 			free(gradient);
 		}
-		//free(iFolderPath);
 		return 0;
 	}
 	else
@@ -179,27 +175,69 @@ void Gaussian_Blur(unsigned char* frame1, unsigned char* filt) {
 
 void Sobel(unsigned char* filt, unsigned char* gradient) {
 
-	int row, col, rowOffset, colOffset;
-	int Gx, Gy;
+	int row, col;
+	//int Gx, Gy;
 
+	//__m128 rowOffset = _mm_set_ps(-1, 0, 1, 0);	// Not in loop because constant and performance reasons
+	//__m128 colOffset = _mm_set_ps(-1, 0, 1, 0); // Need to make sure last value has no impact
+
+	int rowOffset, colOffset, i;
+	__m128i Gx, Gy, GxMaskCont, GyMaskCont, filtCont, tempStore;
+	__m128i MCont = _mm_set1_epi16(M);
+	__m128 sqrtVal;
+	
+	float tempArr[4];
 	/*---------------------------- Determine edge directions and gradient strengths -------------------------------------------*/
-	for (row = 1; row < N - 1; row++) {
-		for (col = 1; col < M - 1; col++) {
-
-			Gx = 0;
-			Gy = 0;
+	for (row = 1; row < N - 1; row+=8) {
+		col = 1;
+		for (col; col < M - 1; col+=8) {
+			Gx = _mm_set1_epi16(0);	// There does not appear to be a setzero.
+			Gy = _mm_set1_epi16(0);
 
 			/* Calculate the sum of the Sobel mask times the nine surrounding pixels in the x and y direction */
-			for (rowOffset = -1; rowOffset <= 1; rowOffset++) {
+			rowOffset = -1;
+			for (rowOffset; rowOffset <= 1; rowOffset++) {
 				for (colOffset = -1; colOffset <= 1; colOffset++) {
+					filtCont = _mm_loadu_epi16(&filt[M * (row + rowOffset) + col + colOffset]);	// Loads filters 0-3
+					GxMaskCont = _mm_loadu_epi16(&GxMask[rowOffset + 1][colOffset + 1]);
+					GyMaskCont = _mm_loadu_epi16(&GyMask[rowOffset + 1][colOffset + 1]);
 
-					Gx += filt[M * (row + rowOffset) + col + colOffset] * GxMask[rowOffset + 1][colOffset + 1];
-					Gy += filt[M * (row + rowOffset) + col + colOffset] * GyMask[rowOffset + 1][colOffset + 1];
+					tempStore = _mm_mul_epi32(filtCont, GxMaskCont);
+					Gx = _mm_add_epi16(Gx, tempStore);
+					tempStore = _mm_mul_epi32(filtCont, GyMaskCont);
+					Gy = _mm_add_epi16(Gy, tempStore);			
+					//Gx += filt[M * (row + rowOffset) + col + colOffset] * GxMask[rowOffset + 1][colOffset + 1];
+					//Gy += filt[M * (row + rowOffset) + col + colOffset] * GyMask[rowOffset + 1][colOffset + 1];
+
 				}
 			}
-
-			gradient[M * row + col] = (unsigned char)sqrt(Gx * Gx + Gy * Gy); /* Calculate gradient strength		*/
+			sqrtVal = _mm_sqrt_ps(_mm_castsi128_ps(_mm_maddubs_epi16(Gx, Gy)));
+			// Maddubs muls vertically and adds horizontally
+			// It produces the equivalent of Gx * Gx + Gy * Gy, I think.
+			_mm_storeu_ps(&tempArr[0],sqrtVal);
+			
+			for (i = 0; i < 4; i++)
+			{
+				gradient[M * row + col + i] = (unsigned char)tempArr[i];
+			}
+			//gradient[M * row + col] = (unsigned char)sqrt(Gx * Gx + Gy * Gy); /* Calculate gradient strength		*/
 			//gradient[row][col] = abs(Gx) + abs(Gy); // this is an optimized version of the above
+
+			
+			// Assessment:
+			/* rowOffset and colOffset change, but can easily be vectorised (no complex calculation)
+			* "Fully unroll the two innermost loops", only rowOffset and colOffset need vectorising
+			*	Problem with the above: It seems like row and column need to be vectorised, not their offsets.
+			*	Offsets change the value too much to vectorise. (-1024 to 
+			* filt: const Arr
+			* M: const
+			* row + col: int updating outside of vectorisation
+			* rowOffset + colOffset: int updating inside of vectorisation (+4/8, not ++)
+			* GxMask + GyMask: const Arr
+			* Gx and Gy: int updating inside loop, total is the sum of the loop, they do not update
+			*			 themselves, so should be simpler to implement than Q1
+			*/
+
 
 		}
 	}
