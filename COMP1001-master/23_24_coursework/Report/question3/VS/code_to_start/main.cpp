@@ -18,6 +18,7 @@
 //function declarations
 void Gaussian_Blur(unsigned char* frame1, unsigned char* filt);
 void Sobel(unsigned char* filt, unsigned char* gradient);
+void SobelNoVec(unsigned char* filt, unsigned char* gradient);
 //int initialize_kernel();	 Pretty sure this is for Linux, ignore.
 int read_image(char* filename, unsigned char** frame1, unsigned char** filt, unsigned char** gradient);
 void read_image_and_put_zeros_around(char* filename);
@@ -26,6 +27,7 @@ int openfile(char* filename, FILE** finput);
 int getint(FILE* fp);
 unsigned char* allocateArr();
 char* allocatePath(unsigned int size);		// If path arrays stay static, this function becomes irrelevant, REMOVE.
+void checkValues(unsigned char* grad1, unsigned char* grad2);
 
 //CRITICAL POINT: images' paths - You need to change these paths
 //#define IN "/home/wave/Desktop/comp1001/code_to_start/input_images/a15.pgm"
@@ -117,7 +119,15 @@ int main(int argc, char* argv[]) {   // No order of arguments provided, assuming
 			}
 
 			Gaussian_Blur(frame1, filt); //blur the image (reduce noise)
-			Sobel(filt, gradient); //apply edge detection
+			
+			
+			unsigned char* gradientNoVec = gradient;
+			Sobel(filt, gradient); //apply edge detection with vectorisation
+			// filt is unchanged, but gradient changes
+			// As such, it must be copied and rerun.
+
+			SobelNoVec(filt, gradientNoVec);
+			checkValues(gradientNoVec, gradient);
 
 			write_image2(oFolderPath, filt); //store output image to the disc
 			write_image2(oFolderPathConcat, gradient); //store output image to the disc
@@ -188,64 +198,94 @@ void Sobel(unsigned char* filt, unsigned char* gradient) {
 	
 	float tempArr[4];
 	/*---------------------------- Determine edge directions and gradient strengths -------------------------------------------*/
-	for (row = 1; row < N - 1; row+=8) {
-		col = 1;
-		for (col; col < M - 1; col+=8) {
-			Gx = _mm_set1_epi16(0);	// There does not appear to be a setzero.
-			Gy = _mm_set1_epi16(0);
+	if (N - 1 < 8)	// If too small for vectorisation (unlikely)
+	{
+		SobelNoVec(filt, gradient);
+	}
+	else
+	{
+		for (row = 1; row < N - 1; row += 8) {
+			for (col = 1; col < M - 1; col += 8) {
+				Gx = _mm_set1_epi16(0);	// There does not appear to be a setzero.
+				Gy = _mm_set1_epi16(0);
+
+				/* Calculate the sum of the Sobel mask times the nine surrounding pixels in the x and y direction */
+				rowOffset = -1;
+				for (rowOffset; rowOffset <= 1; rowOffset++) {
+					for (colOffset = -1; colOffset <= 1; colOffset++) {
+						filtCont = _mm_loadu_epi16(&filt[M * (row + rowOffset) + col + colOffset]);	// Loads filters 0-3
+						GxMaskCont = _mm_loadu_epi16(&GxMask[rowOffset + 1][colOffset + 1]);
+						GyMaskCont = _mm_loadu_epi16(&GyMask[rowOffset + 1][colOffset + 1]);
+
+						tempStore = _mm_mul_epi32(filtCont, GxMaskCont);
+						Gx = _mm_add_epi16(Gx, tempStore);
+						tempStore = _mm_mul_epi32(filtCont, GyMaskCont);
+						Gy = _mm_add_epi16(Gy, tempStore);
+						//Gx += filt[M * (row + rowOffset) + col + colOffset] * GxMask[rowOffset + 1][colOffset + 1];
+						//Gy += filt[M * (row + rowOffset) + col + colOffset] * GyMask[rowOffset + 1][colOffset + 1];
+
+					}
+				}
+				sqrtVal = _mm_sqrt_ps(_mm_castsi128_ps(_mm_maddubs_epi16(Gx, Gy)));
+				// Maddubs muls vertically and adds horizontally
+				// It produces the equivalent of Gx * Gx + Gy * Gy, I think.
+				_mm_storeu_ps(&tempArr[0], sqrtVal);
+
+				for (i = 0; i < 4; i++)
+				{
+					gradient[M * row + col + i] = (unsigned char)tempArr[i];
+				}
+				//gradient[M * row + col] = (unsigned char)sqrt(Gx * Gx + Gy * Gy); /* Calculate gradient strength		*/
+				//gradient[row][col] = abs(Gx) + abs(Gy); // this is an optimized version of the above
+
+
+				// Assessment:
+				/* rowOffset and colOffset change, but can easily be vectorised (no complex calculation)
+				* "Fully unroll the two innermost loops", only rowOffset and colOffset need vectorising
+				*	Problem with the above: It seems like row and column need to be vectorised, not their offsets.
+				*	Offsets change the value too much to vectorise. (-1024 to
+				* filt: const Arr
+				* M: const
+				* row + col: int updating outside of vectorisation
+				* rowOffset + colOffset: int updating inside of vectorisation (+4/8, not ++)
+				* GxMask + GyMask: const Arr
+				* Gx and Gy: int updating inside loop, total is the sum of the loop, they do not update
+				*			 themselves, so should be simpler to implement than Q1
+				*/
+
+
+			}
+		}
+	}
+}
+
+void SobelNoVec(unsigned char* filt, unsigned char* gradient)
+{
+	int row, col, rowOffset, colOffset;
+	int Gx, Gy;
+
+	/*---------------------------- Determine edge directions and gradient strengths -------------------------------------------*/
+	for (row = 1; row < N - 1; row++) {
+		for (col = 1; col < M - 1; col++) {
+
+			Gx = 0;
+			Gy = 0;
 
 			/* Calculate the sum of the Sobel mask times the nine surrounding pixels in the x and y direction */
-			rowOffset = -1;
-			for (rowOffset; rowOffset <= 1; rowOffset++) {
+			for (rowOffset = -1; rowOffset <= 1; rowOffset++) {
 				for (colOffset = -1; colOffset <= 1; colOffset++) {
-					filtCont = _mm_loadu_epi16(&filt[M * (row + rowOffset) + col + colOffset]);	// Loads filters 0-3
-					GxMaskCont = _mm_loadu_epi16(&GxMask[rowOffset + 1][colOffset + 1]);
-					GyMaskCont = _mm_loadu_epi16(&GyMask[rowOffset + 1][colOffset + 1]);
 
-					tempStore = _mm_mul_epi32(filtCont, GxMaskCont);
-					Gx = _mm_add_epi16(Gx, tempStore);
-					tempStore = _mm_mul_epi32(filtCont, GyMaskCont);
-					Gy = _mm_add_epi16(Gy, tempStore);			
-					//Gx += filt[M * (row + rowOffset) + col + colOffset] * GxMask[rowOffset + 1][colOffset + 1];
-					//Gy += filt[M * (row + rowOffset) + col + colOffset] * GyMask[rowOffset + 1][colOffset + 1];
-
+					Gx += filt[M * (row + rowOffset) + col + colOffset] * GxMask[rowOffset + 1][colOffset + 1];
+					Gy += filt[M * (row + rowOffset) + col + colOffset] * GyMask[rowOffset + 1][colOffset + 1];
 				}
 			}
-			sqrtVal = _mm_sqrt_ps(_mm_castsi128_ps(_mm_maddubs_epi16(Gx, Gy)));
-			// Maddubs muls vertically and adds horizontally
-			// It produces the equivalent of Gx * Gx + Gy * Gy, I think.
-			_mm_storeu_ps(&tempArr[0],sqrtVal);
-			
-			for (i = 0; i < 4; i++)
-			{
-				gradient[M * row + col + i] = (unsigned char)tempArr[i];
-			}
-			//gradient[M * row + col] = (unsigned char)sqrt(Gx * Gx + Gy * Gy); /* Calculate gradient strength		*/
+
+			gradient[M * row + col] = (unsigned char)sqrt(Gx * Gx + Gy * Gy); /* Calculate gradient strength		*/
 			//gradient[row][col] = abs(Gx) + abs(Gy); // this is an optimized version of the above
-
-			
-			// Assessment:
-			/* rowOffset and colOffset change, but can easily be vectorised (no complex calculation)
-			* "Fully unroll the two innermost loops", only rowOffset and colOffset need vectorising
-			*	Problem with the above: It seems like row and column need to be vectorised, not their offsets.
-			*	Offsets change the value too much to vectorise. (-1024 to 
-			* filt: const Arr
-			* M: const
-			* row + col: int updating outside of vectorisation
-			* rowOffset + colOffset: int updating inside of vectorisation (+4/8, not ++)
-			* GxMask + GyMask: const Arr
-			* Gx and Gy: int updating inside loop, total is the sum of the loop, they do not update
-			*			 themselves, so should be simpler to implement than Q1
-			*/
-
 
 		}
 	}
-
-
 }
-
-
 
 
 int read_image(char* filename, unsigned char** frame1, unsigned char** filt, unsigned char** gradient)	// This must run for every file in the folder.
@@ -428,10 +468,21 @@ int getint(FILE* fp) /* adapted from "xv" source code */
 	return i;
 }
 
+void checkValues(unsigned char* grad1, unsigned char* grad2) {
+	bool isCorrect = true;
+	for (int i = 0; i < 10; i++)	// Fixed i cap as the arrays are always length 5
+	{
+		if (grad1[i] != grad2[i])	// No point using the floating point calculation, as these are whole values
+		{							// A character cannot be between 'a' and 'b', it is either 'a' or 'b'.
+			isCorrect = false;
+			break;
+		}
+	}
 
-
-
-
-
-
-
+	if (isCorrect) {
+		printf("Values match.\n");
+	}
+	else {
+		printf("Error: Values do not match.\n");
+	}
+}

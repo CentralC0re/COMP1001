@@ -26,7 +26,7 @@
 
 //function declaration
 void initialize();
-void resetY();	// Keep forgetting to do these
+void resetY();
 void resetW();
 void routine1(float alpha, float beta);
 void routine2(float alpha, float beta);
@@ -45,8 +45,7 @@ int main() {
 
     initialize();
 
-	//R1	-	Commented out so that y remains in its unmodified state.
-	//			Unless I edit Routine1 so it stores its results elsewhere, it must remain commented out
+	//R1
     printf("\nRoutine1:");
     start_time = omp_get_wtime(); //start timer
 
@@ -106,9 +105,7 @@ int main() {
 		r1VCheckValues[4] = y[MLoc * 5];
 	}
 
-	checkValues(r1CheckValues, r1VCheckValues);	// r1VCheckValues is correct on some odd numbers, but incorrect on others.
-												// Why?
-
+	checkValues(r1CheckValues, r1VCheckValues);
 
 	//R2
     printf("\nRoutine2:");
@@ -167,17 +164,8 @@ int main() {
 		r2VCheckValues[4] = w[NLoc * 5];
 	}
 
-	//r2CheckValues	{102088.211, 25898.4395, 117328.445, 41135.9492, 132564.641}	float[5]
-
-	//r2VCheckValues {102108.281, 25901.2656, 117352.219, 41145.1289, 132575.812}	float[5]
-	
-	// Differences:	20.07,	2.8261,	23.774
-	// Same results before and after change.
-
 	checkValues(r2CheckValues, r2VCheckValues);		// r2Check and r2VCheck are independent.
-
-	/* All values which are a multiple of 8 are correct, but everything that is not a multiple is
-	incorrect, I'm assuming this is floating point precision issues, but will test with the mm instead */										
+										
     return 0;
 }
 
@@ -256,10 +244,10 @@ void routine1_vec(float alpha, float beta) {
 		if (i + 8 >= M && i != M-1)	// If next iteration puts i above M, and i is not already at its final value
 		{
 			i+=8;
-			for (i; i < M; i++)	// With current code, this has a maximum loop count of 7.
-			{					// With improvements, this could only loop 3 times.
+			for (i; i < M; i++)
+			{
 				y[i] = alpha * y[i] + beta * z[i];
-			}	// I forgot that i through i + 7 run here. Naturally i + 8 is needed.
+			}
 		}
 	}
 }
@@ -300,13 +288,11 @@ void routine2_vec(float alpha, float beta) {
 
 	for (i = 0; i < N; i++)
 	{						// Either i or j can be vectorised (+=4), but not both
-							// (Without further logic)
-		//wContain = _mm_set1_ps(w[i]);		// wContain has i=[0]
-		
+							// (Without further logic)		
 		for (j = 0; j < N; j+=8)
 		{
-			arrAContain = _mm256_loadu_ps(&A[i][j]);	// arrAContain has i=[0] j=[0:3]
-			xContain = _mm256_loadu_ps(&x[j]);		// xContain has j=[0:3]
+			arrAContain = _mm256_loadu_ps(&A[i][j]);
+			xContain = _mm256_loadu_ps(&x[j]);
 
 			//subResult = _mm_sub_ps(wContain, betaContain);		// This needs recalculation (w updated every j)
 			multResult = _mm256_mul_ps(alphaContain, arrAContain);
@@ -316,38 +302,17 @@ void routine2_vec(float alpha, float beta) {
 			for (k = 0; k < 8; k++)
 			{
 				w[i] = w[i] - beta + multResultArr[k];	
-			}
-			
-			/*
-			Values are as wrong as they were originally, but now they're negative.
-			May have interpreted wrong.
-			*/
-
-			//subResult may need to be wContain, but this excacerbates the problem (as no subtraction occurs)
-			
+			}			
 			//w[i] = w[i] - beta + alpha * A[i][j] * x[j];
 
 
 		}
-
-		//wContain = _mm_hadd_ps(wContain, wContain);	// Only [0] has a value by end.
-		//wContain = _mm_hadd_ps(wContain, wContain);
-		
-		//_mm_store_ss(&w[i], wContain);	// Only stores wContain[0]
-
-		// Results are between ~2 and 30 off.
-		// Based on testing (below), the error is due to w not being updated. [0] is correct, [1] is wrong, [2] is wrong, [3] is wrong.
-		// Cannot fix this while remaining parallel?
-		//			Expected			Result
-		//Loop 1: -0.0470029935		-0.0470029935
-		//Loop 2: -0.0689369813		-0.0239339899
-		//Loop 3: -0.0218019709		 0.0451350063
 	}
 	
 }
 
-void checkValues(float correct[5], float checking[5]) {	// Based on how it responded to the last value
-	bool isCorrect = true;								// Being invalid, this works fine, just doesn't show properly
+void checkValues(float correct[5], float checking[5]) {
+	bool isCorrect = true;
 	for (int i = 0; i < 5; i++)	// Fixed i cap as the arrays are always length 5
 	{
 		if (abs((correct[i] - checking[i]) / checking[i]) >= 0.00001)	// FP calculation to determine if two values are equal enough
